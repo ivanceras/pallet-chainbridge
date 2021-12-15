@@ -1,0 +1,9 @@
+[workspace]
+members = [
+    'chainbridge',
+    'substrate-node-template/node',
+    'substrate-node-template/pallets/template',
+    'substrate-node-template/runtime',
+]
+[profile.release]
+panic = 'unwind'
