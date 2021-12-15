@@ -45,8 +45,16 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn resources)]
-    pub type Resources<T: Config> =
-        StorageMap<_, Blake2_128Concat, ResourceId, Vec<u8>, ValueQuery>;
+    pub type Resources<T: Config> = StorageMap<_, Blake2_256, ResourceId, Vec<u8>, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn chains)]
+    pub type ChainNonces<T: Config> =
+        StorageMap<_, Blake2_256, ChainId, Option<DepositNonce>, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn relayers)]
+    pub type Relayers<T: Config> = StorageMap<_, Blake2_256, T::AccountId, bool, ValueQuery>;
 
     // Pallets use events to inform users when important changes are made.
     // https://docs.substrate.io/v3/runtime/events-and-errors
@@ -196,8 +204,34 @@ pub mod pallet {
             Ok(())
         }
 
+        /// Whitelist a chain ID for transfer
         pub fn whitelist(id: ChainId) -> DispatchResult {
             ensure!(id != T::ChainId::get(), Error::<T>::InvalidChainId);
+            ensure!(
+                !Self::chain_whitelisted(id),
+                Error::<T>::ChainAlreadyWhitelisted
+            );
+            <ChainNonces<T>>::insert(&id, Some(0));
+            Self::deposit_event(Event::ChainWhitelisted(id));
+            Ok(())
+        }
+
+        /// Checks if a chain exists as a whitelisted destination
+        pub fn chain_whitelisted(id: ChainId) -> bool {
+            return Self::chains(id) != None;
+        }
+
+        pub fn is_relayer(who: &T::AccountId) -> bool {
+            Self::relayers(who)
+        }
+
+        /// Adds a new relayer to the set
+        pub fn register_relayer(relayer: T::AccountId) -> DispatchResult {
+            ensure!(
+                !Self::is_relayer(&relayer),
+                Error::<T>::RelayerAlreadyExists
+            );
+            <Relayers<T>>::insert(&relayer, true);
             Ok(())
         }
     }
