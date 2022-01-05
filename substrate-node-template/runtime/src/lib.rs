@@ -33,6 +33,8 @@ pub use frame_support::{
 	},
 	StorageValue,
 };
+use frame_support::{pallet_prelude::EnsureOrigin, traits::SortedMembers};
+use frame_system::{EnsureRoot, EnsureSignedBy};
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
 use pallet_transaction_payment::CurrencyAdapter;
@@ -42,6 +44,8 @@ pub use sp_runtime::{Perbill, Permill};
 
 /// Import the template pallet.
 pub use pallet_template;
+
+pub use chainbridge;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -279,6 +283,24 @@ impl pallet_template::Config for Runtime {
 	type Event = Event;
 }
 
+parameter_types! {
+	pub const ChainId: u8 = 5;
+	pub const AdminUserId: u64 = 1;
+}
+
+impl SortedMembers<u64> for AdminUserId {
+	fn sorted_members() -> Vec<u64> {
+		vec![1]
+	}
+}
+
+impl chainbridge::Config for Runtime {
+	type Event = Event;
+	type ChainId = ChainId;
+	//type AdminOrigin = dyn EnsureOrigin<AdminUserId, Success = ()>;
+	//type AdminOrigin = EnsureRoot<Origin>;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime where
@@ -296,6 +318,7 @@ construct_runtime!(
 		Sudo: pallet_sudo,
 		// Include the custom logic from the pallet-template in the runtime.
 		TemplateModule: pallet_template,
+		Chainbridge: chainbridge,
 	}
 );
 

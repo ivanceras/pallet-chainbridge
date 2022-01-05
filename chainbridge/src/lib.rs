@@ -18,6 +18,7 @@ mod benchmarking;
 #[frame_support::pallet]
 pub mod pallet {
     use crate::types::{ChainId, DepositNonce, ResourceId};
+    use frame_support::inherent::*;
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
     use sp_core::U256;
@@ -26,7 +27,7 @@ pub mod pallet {
     pub trait Config: frame_system::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         /// Origin used to administer the pallet
-        type AdminOrigin: EnsureOrigin<Self::Origin>;
+        //type AdminOrigin: EnsureOrigin<Self::Origin>;
         /// The identifier for this chain.
         /// This must be unique and must not collide with existing IDs within a set of bridged
         /// chains.
@@ -139,6 +140,7 @@ pub mod pallet {
         /// # </weight>
         #[pallet::weight(10_000)]
         pub fn set_threshold(origin: OriginFor<T>, threshold: u32) -> DispatchResult {
+            log::info!("--->>>> Threshold is now set to: {}", threshold);
             Self::ensure_admin(origin)?;
             Self::set_relayer_threshold(threshold)?;
             Ok(())
@@ -174,15 +176,25 @@ pub mod pallet {
             Self::unregister_resource(id)?;
             Ok(())
         }
+
+        #[pallet::weight(10_000)]
+        pub fn whitelist_chain(origin: OriginFor<T>, id: ChainId) -> DispatchResult {
+            log::info!("whitelisting chain_id {:?}", id);
+            Self::ensure_admin(origin)?;
+            Self::whitelist(id)?;
+            Ok(())
+        }
     }
 
     impl<T: Config> Pallet<T> {
         // ** Utility methods ***
 
         pub fn ensure_admin(origin: OriginFor<T>) -> DispatchResult {
+            /*
             T::AdminOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)?;
+            */
             Ok(())
         }
         pub fn set_relayer_threshold(threshold: u32) -> DispatchResult {
