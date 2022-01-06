@@ -285,20 +285,12 @@ impl pallet_template::Config for Runtime {
 
 parameter_types! {
 	pub const ChainId: u8 = 5;
-	pub const AdminUserId: u64 = 1;
-}
-
-impl SortedMembers<u64> for AdminUserId {
-	fn sorted_members() -> Vec<u64> {
-		vec![1]
-	}
 }
 
 impl chainbridge::Config for Runtime {
 	type Event = Event;
 	type ChainId = ChainId;
-	//type AdminOrigin = dyn EnsureOrigin<AdminUserId, Success = ()>;
-	//type AdminOrigin = EnsureRoot<Origin>;
+	type AdminOrigin = EnsureRoot<Self::AccountId>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

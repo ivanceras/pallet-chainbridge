@@ -27,7 +27,7 @@ pub mod pallet {
     pub trait Config: frame_system::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         /// Origin used to administer the pallet
-        //type AdminOrigin: EnsureOrigin<Self::Origin>;
+        type AdminOrigin: EnsureOrigin<Self::Origin>;
         /// The identifier for this chain.
         /// This must be unique and must not collide with existing IDs within a set of bridged
         /// chains.
@@ -190,11 +190,9 @@ pub mod pallet {
         // ** Utility methods ***
 
         pub fn ensure_admin(origin: OriginFor<T>) -> DispatchResult {
-            /*
             T::AdminOrigin::try_origin(origin)
                 .map(|_| ())
                 .or_else(ensure_root)?;
-            */
             Ok(())
         }
         pub fn set_relayer_threshold(threshold: u32) -> DispatchResult {
