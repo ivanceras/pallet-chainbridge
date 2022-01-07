@@ -291,6 +291,7 @@ impl chainbridge::Config for Runtime {
 	type Event = Event;
 	type ChainId = ChainId;
 	type AdminOrigin = EnsureRoot<Self::AccountId>;
+	type Proposal = Call;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -310,6 +311,9 @@ construct_runtime!(
 		Sudo: pallet_sudo,
 		// Include the custom logic from the pallet-template in the runtime.
 		TemplateModule: pallet_template,
+
+		//TODO: propose renaming chainbridge to chainbridge-pallet to distinguish
+		//from main project repos: chainbridge/chainbridge-core
 		Chainbridge: chainbridge,
 	}
 );

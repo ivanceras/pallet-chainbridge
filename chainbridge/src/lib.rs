@@ -15,12 +15,20 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
+use crate::types::ProposalVotes;
+
 #[frame_support::pallet]
 pub mod pallet {
+    use super::*;
     use crate::types::{ChainId, DepositNonce, ResourceId};
+    use crate::ProposalVotes;
+    use codec::{Decode, Encode, EncodeLike};
+    use frame_support::dispatch::Dispatchable;
     use frame_support::inherent::*;
     use frame_support::pallet_prelude::*;
+    use frame_support::weights::GetDispatchInfo;
     use frame_system::pallet_prelude::*;
+    use scale_info::prelude::boxed::Box;
     use sp_core::U256;
 
     #[pallet::config]
@@ -28,6 +36,11 @@ pub mod pallet {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         /// Origin used to administer the pallet
         type AdminOrigin: EnsureOrigin<Self::Origin>;
+        /// Proposed dispatchable call
+        type Proposal: Parameter
+            + Dispatchable<Origin = Self::Origin>
+            + EncodeLike
+            + GetDispatchInfo;
         /// The identifier for this chain.
         /// This must be unique and must not collide with existing IDs within a set of bridged
         /// chains.
@@ -44,18 +57,25 @@ pub mod pallet {
     /// Number of votes required for a proposal to execute
     pub type RelayerThreshold<T: Config> = StorageValue<_, u32, ValueQuery>;
 
+    /// Utilized by the bridge software to map resource IDs to actual methods
     #[pallet::storage]
     #[pallet::getter(fn resources)]
     pub type Resources<T: Config> = StorageMap<_, Blake2_256, ResourceId, Vec<u8>, ValueQuery>;
 
+    /// All whitelisted chains and their respective transaction counts
     #[pallet::storage]
     #[pallet::getter(fn chains)]
     pub type ChainNonces<T: Config> =
         StorageMap<_, Blake2_256, ChainId, Option<DepositNonce>, ValueQuery>;
 
+    /// Tracks current relayer set
     #[pallet::storage]
     #[pallet::getter(fn relayers)]
     pub type Relayers<T: Config> = StorageMap<_, Blake2_256, T::AccountId, bool, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn relayer_count)]
+    pub type RelayerCount<T: Config> = StorageValue<_, u32, ValueQuery>;
 
     // Pallets use events to inform users when important changes are made.
     // https://docs.substrate.io/v3/runtime/events-and-errors
@@ -242,6 +262,17 @@ pub mod pallet {
                 Error::<T>::RelayerAlreadyExists
             );
             <Relayers<T>>::insert(&relayer, true);
+            <RelayerCount<T>>::mutate(|i| *i += 1);
+            Self::deposit_event(Event::RelayerAdded(relayer));
+            Ok(())
+        }
+
+        /// Removes a relayer from the set
+        pub fn unregister_relayer(relayer: T::AccountId) -> DispatchResult {
+            ensure!(Self::is_relayer(&relayer), Error::<T>::RelayerInvalid);
+            <Relayers<T>>::remove(&relayer);
+            <RelayerCount<T>>::mutate(|i| *i -= 1);
+            Self::deposit_event(Event::RelayerRemoved(relayer));
             Ok(())
         }
     }

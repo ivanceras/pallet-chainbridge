@@ -71,8 +71,9 @@ impl system::Config for Test {
 
 impl pallet_template::Config for Test {
     type Event = Event;
-    //type AdminOrigin = EnsureSignedBy<TestUserId, u64>;
+    type AdminOrigin = EnsureSignedBy<TestUserId, u64>;
     type ChainId = MockChainId;
+    type Proposal = Call;
 }
 
 // Build genesis storage according to the mock runtime.
