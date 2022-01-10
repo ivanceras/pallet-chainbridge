@@ -1,5 +1,5 @@
 #![deny(warnings)]
-#![allow(unused)]
+//#![allow(unused)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 /// Edit this file to define custom logic or remove it if it is not needed.
@@ -82,7 +82,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn resources)]
     pub type Resources<T: Config> =
-        StorageMap<_, Blake2_256, ResourceId, Vec<u8>, ValueQuery>;
+        StorageMap<_, Blake2_256, ResourceId, Vec<u8>, OptionQuery>;
 
     /// All whitelisted chains and their respective transaction counts
     #[pallet::storage]
@@ -286,6 +286,62 @@ pub mod pallet {
             Self::unregister_relayer(v)?;
             Ok(())
         }
+
+        /// Commits a vote in favour of the provided proposal.
+        ///
+        /// If a proposal with the given nonce and source chain ID does not already exist,
+        /// it will be created with an initial vote in favour from the caller.
+        ///
+        /// # <weight>
+        /// - weight of proposed call, regardless of whether execution is performed
+        /// # </weight>
+        #[pallet::weight(10_000)]
+        pub fn acknowledge_proposal(
+            origin: OriginFor<T>,
+            nonce: DepositNonce,
+            src_id: ChainId,
+            r_id: ResourceId,
+            call: Box<<T as Config>::Proposal>,
+        ) -> DispatchResult {
+            let who = ensure_signed(origin)?;
+            ensure!(Self::is_relayer(&who), Error::<T>::MustBeRelayer);
+            ensure!(
+                Self::chain_whitelisted(src_id),
+                Error::<T>::ChainNotWhitelisted
+            );
+            ensure!(
+                Self::resource_exists(r_id),
+                Error::<T>::ResourceDoesNotExist
+            );
+
+            Self::vote_for(who, nonce, src_id, call)
+        }
+
+        /// Commits a vote against a provided proposal.
+        ///
+        /// # <weight>
+        /// - Fixed, since execution of proposal should not be included
+        /// # </weight>
+        #[pallet::weight(10_0000)]
+        pub fn reject_proposal(
+            origin: OriginFor<T>,
+            nonce: DepositNonce,
+            src_id: ChainId,
+            r_id: ResourceId,
+            call: Box<<T as Config>::Proposal>,
+        ) -> DispatchResult {
+            let who = ensure_signed(origin)?;
+            ensure!(Self::is_relayer(&who), Error::<T>::MustBeRelayer);
+            ensure!(
+                Self::chain_whitelisted(src_id),
+                Error::<T>::ChainNotWhitelisted
+            );
+            ensure!(
+                Self::resource_exists(r_id),
+                Error::<T>::ResourceDoesNotExist
+            );
+            Self::vote_against(who, nonce, src_id, call)
+        }
     }
 
     impl<T: Config> Pallet<T> {
@@ -309,9 +365,14 @@ pub mod pallet {
             T::PalletId::get().into_account()
         }
 
+        /// Asserts if a resource is registered
+        pub fn resource_exists(id: ResourceId) -> bool {
+            Self::resources(id) != None
+        }
+
         /// Checks if a chain exists as a whitelisted destination
         pub fn chain_whitelisted(id: ChainId) -> bool {
-            return Self::chains(id) != None;
+            Self::chains(id) != None
         }
 
         /// Increments the deposit nonce for the specified chain ID
@@ -465,6 +526,29 @@ pub mod pallet {
             } else {
                 Err(Error::<T>::ProposalDoesNotExist)?
             }
+        }
+
+        /// Commits a vote in favour of the proposal and executes it if the vote threshold is met.
+        fn vote_for(
+            who: T::AccountId,
+            nonce: DepositNonce,
+            src_id: ChainId,
+            prop: Box<T::Proposal>,
+        ) -> DispatchResult {
+            Self::commit_vote(who, nonce, src_id, prop.clone(), true)?;
+            Self::try_resolve_proposal(nonce, src_id, prop)
+        }
+
+        /// Commits a vote against the proposal and cancels it if more than
+        /// (relayers.len() - threshold) votes against exist.
+        fn vote_against(
+            who: T::AccountId,
+            nonce: DepositNonce,
+            src_id: ChainId,
+            prop: Box<T::Proposal>,
+        ) -> DispatchResult {
+            Self::commit_vote(who, nonce, src_id, prop.clone(), false)?;
+            Self::try_resolve_proposal(nonce, src_id, prop)
         }
 
         /// Execute the proposal and signals the result as an event
