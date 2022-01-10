@@ -1,6 +1,12 @@
-use codec::{Decode, Encode, EncodeLike};
-use frame_support::inherent::*;
-use frame_support::pallet_prelude::*;
+use codec::{
+    Decode,
+    Encode,
+    EncodeLike,
+};
+use frame_support::{
+    inherent::*,
+    pallet_prelude::*,
+};
 use scale_info::TypeInfo;
 use sp_std::prelude::*;
 
@@ -46,11 +52,17 @@ where
     /// Attempts to mark the proposal as approve or rejected.
     /// Returns true if the status changes from active.
     /// TODO: use saturating_add
-    pub(crate) fn try_to_complete(&mut self, threshold: u32, total: u32) -> ProposalStatus {
+    pub(crate) fn try_to_complete(
+        &mut self,
+        threshold: u32,
+        total: u32,
+    ) -> ProposalStatus {
         if self.votes_for.len() >= threshold as usize {
             self.status = ProposalStatus::Approved;
             ProposalStatus::Approved
-        } else if total >= threshold && self.votes_against.len() as u32 + threshold > total {
+        } else if total >= threshold
+            && self.votes_against.len() as u32 + threshold > total
+        {
             self.status = ProposalStatus::Rejected;
             ProposalStatus::Rejected
         } else {
