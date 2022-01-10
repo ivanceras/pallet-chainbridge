@@ -77,8 +77,6 @@ pub mod pallet {
     #[pallet::getter(fn relayer_count)]
     pub type RelayerCount<T: Config> = StorageValue<_, u32, ValueQuery>;
 
-    // Pallets use events to inform users when important changes are made.
-    // https://docs.substrate.io/v3/runtime/events-and-errors
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
@@ -110,7 +108,6 @@ pub mod pallet {
         ProposalFailed(ChainId, DepositNonce),
     }
 
-    // Errors inform users that something went wrong.
     #[pallet::error]
     pub enum Error<T> {
         /// Relayer threshold not set
@@ -145,9 +142,6 @@ pub mod pallet {
         ProposalExpired,
     }
 
-    // Dispatchable functions allows users to interact with the pallet and invoke state changes.
-    // These functions materialize as "extrinsics", which are often compared to transactions.
-    // Dispatchable functions must be annotated with a weight and must return a DispatchResult.
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         /// Sets the vote threshold for proposals.
@@ -197,11 +191,40 @@ pub mod pallet {
             Ok(())
         }
 
+        /// Adds a new relayer to the relayer set.
+        ///
+        /// # <weight>
+        /// - O(1) lookup and insert
+        /// # </weight>
         #[pallet::weight(10_000)]
         pub fn whitelist_chain(origin: OriginFor<T>, id: ChainId) -> DispatchResult {
             log::info!("whitelisting chain_id {:?}", id);
             Self::ensure_admin(origin)?;
             Self::whitelist(id)?;
+            Ok(())
+        }
+
+        /// Adds a new relayer to the relayer set.
+        ///
+        /// # <weight>
+        /// - O(1) lookup and removal
+        /// # </weight>
+        #[pallet::weight(10_000)]
+        pub fn add_relayer(origin: OriginFor<T>, v: T::AccountId) -> DispatchResult {
+            Self::ensure_admin(origin)?;
+            Self::register_relayer(v)?;
+            Ok(())
+        }
+
+        /// Removes an existing relaye to the set.
+        ///
+        /// # <weight>
+        /// - O(1) lookup and removal
+        /// # </weight>
+        #[pallet::weight(10_0000)]
+        pub fn remove_relayer(origin: OriginFor<T>, v: T::AccountId) -> DispatchResult {
+            Self::ensure_admin(origin)?;
+            Self::unregister_relayer(v)?;
             Ok(())
         }
     }
@@ -215,6 +238,28 @@ pub mod pallet {
                 .or_else(ensure_root)?;
             Ok(())
         }
+
+        /// Checks if who is a relayer
+        pub fn is_relayer(who: &T::AccountId) -> bool {
+            Self::relayers(who)
+        }
+
+        /// Checks if a chain exists as a whitelisted destination
+        pub fn chain_whitelisted(id: ChainId) -> bool {
+            return Self::chains(id) != None;
+        }
+
+        /// Increments the deposit nonce for the specified chain ID
+        fn bump_nonce(id: ChainId) -> DepositNonce {
+            //TODO: use saturating_add here
+            let nonce = Self::chains(id).unwrap_or_default() + 1;
+            <ChainNonces<T>>::insert(id, Some(nonce));
+            nonce
+        }
+
+        // *** Admin methods ****
+
+        /// Set a new voting threshold
         pub fn set_relayer_threshold(threshold: u32) -> DispatchResult {
             ensure!(threshold > 0, Error::<T>::InvalidThreshold);
             <RelayerThreshold<T>>::put(threshold);
@@ -236,7 +281,9 @@ pub mod pallet {
 
         /// Whitelist a chain ID for transfer
         pub fn whitelist(id: ChainId) -> DispatchResult {
+            // Cannot whitelist this chain
             ensure!(id != T::ChainId::get(), Error::<T>::InvalidChainId);
+            // Cannot whitelist with an existing entry
             ensure!(
                 !Self::chain_whitelisted(id),
                 Error::<T>::ChainAlreadyWhitelisted
@@ -246,15 +293,6 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Checks if a chain exists as a whitelisted destination
-        pub fn chain_whitelisted(id: ChainId) -> bool {
-            return Self::chains(id) != None;
-        }
-
-        pub fn is_relayer(who: &T::AccountId) -> bool {
-            Self::relayers(who)
-        }
-
         /// Adds a new relayer to the set
         pub fn register_relayer(relayer: T::AccountId) -> DispatchResult {
             ensure!(
@@ -262,6 +300,7 @@ pub mod pallet {
                 Error::<T>::RelayerAlreadyExists
             );
             <Relayers<T>>::insert(&relayer, true);
+            //TODO: use saturating_add
             <RelayerCount<T>>::mutate(|i| *i += 1);
             Self::deposit_event(Event::RelayerAdded(relayer));
             Ok(())
@@ -275,13 +314,6 @@ pub mod pallet {
             <RelayerCount<T>>::mutate(|i| *i -= 1);
             Self::deposit_event(Event::RelayerRemoved(relayer));
             Ok(())
-        }
-
-        fn bump_nonce(id: ChainId) -> DepositNonce {
-            //TODO: use saturating_add here
-            let nonce = Self::chains(id).unwrap_or_default() + 1;
-            <ChainNonces<T>>::insert(id, Some(nonce));
-            nonce
         }
 
         /// Initiates a transfer of a fungible asset out of the chain. This should be called by
