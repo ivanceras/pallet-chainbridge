@@ -20,13 +20,14 @@ use crate::types::ProposalVotes;
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use crate::types::{ChainId, DepositNonce, ResourceId};
-    use crate::ProposalVotes;
+    use crate::types::{ChainId, DepositNonce, ProposalStatus, ProposalVotes, ResourceId};
     use codec::{Decode, Encode, EncodeLike};
     use frame_support::dispatch::Dispatchable;
     use frame_support::inherent::*;
     use frame_support::pallet_prelude::*;
+    use frame_support::sp_runtime::traits::AccountIdConversion;
     use frame_support::weights::GetDispatchInfo;
+    use frame_support::PalletId;
     use frame_system::pallet_prelude::*;
     use scale_info::prelude::boxed::Box;
     use sp_core::U256;
@@ -46,6 +47,17 @@ pub mod pallet {
         /// chains.
         #[pallet::constant]
         type ChainId: Get<ChainId>;
+
+        #[pallet::constant]
+        type ProposalLifetime: Get<Self::BlockNumber>;
+
+        /// Constant configuration parameter to store the module identifier for the pallet.
+        ///
+        /// The module identifier may be of the form ```PalletId(*b"chnbrdge")``` and set
+        /// using the [`parameter_types`](https://substrate.dev/docs/en/knowledgebase/runtime/macros#parameter_types)
+        // macro in the [`runtime/lib.rs`] file.
+        #[pallet::constant]
+        type PalletId: Get<PalletId>;
     }
 
     #[pallet::pallet]
@@ -76,6 +88,20 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn relayer_count)]
     pub type RelayerCount<T: Config> = StorageValue<_, u32, ValueQuery>;
+
+    /// All known proposals.
+    /// The key is the hash of the call and the deposit ID, to ensure it's unique.
+    #[pallet::storage]
+    #[pallet::getter(fn get_votes)]
+    pub(super) type Votes<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_256,
+        ChainId,
+        Blake2_256,
+        (DepositNonce, T::Proposal),
+        ProposalVotes<T::AccountId, T::BlockNumber>,
+        OptionQuery,
+    >;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -244,6 +270,12 @@ pub mod pallet {
             Self::relayers(who)
         }
 
+        /// Provides an AccountId for the pallet.
+        /// This is used both as an origin check and deposit/withdrawal account.
+        pub fn account_id() -> T::AccountId {
+            T::PalletId::get().into_account()
+        }
+
         /// Checks if a chain exists as a whitelisted destination
         pub fn chain_whitelisted(id: ChainId) -> bool {
             return Self::chains(id) != None;
@@ -313,6 +345,89 @@ pub mod pallet {
             //TODO: use saturating_sub
             <RelayerCount<T>>::mutate(|i| *i -= 1);
             Self::deposit_event(Event::RelayerRemoved(relayer));
+            Ok(())
+        }
+
+        // *** Proposal voting and execution methods ***
+
+        /// Commits a vote for a proposal. If the proposal doesn't exist it will be created.
+        fn commit_vote(
+            who: T::AccountId,
+            nonce: DepositNonce,
+            src_id: ChainId,
+            prop: Box<T::Proposal>,
+            in_favour: bool,
+        ) -> DispatchResult {
+            let now = <frame_system::Module<T>>::block_number();
+            let mut votes = match <Votes<T>>::get(src_id, (nonce, prop.clone())) {
+                Some(v) => v,
+                None => {
+                    let mut v = ProposalVotes::default();
+                    v.expiry = now + T::ProposalLifetime::get();
+                    v
+                }
+            };
+
+            // Ensure the proposal isn't complete, proposal is not expired and relayer hasn't already votes
+            ensure!(!votes.is_complete(), Error::<T>::ProposalAlreadyComplete);
+            ensure!(!votes.is_expired(now), Error::<T>::ProposalExpired);
+            ensure!(!votes.has_voted(&who), Error::<T>::RelayerAlreadyVoted);
+
+            if in_favour {
+                votes.votes_for.push(who.clone());
+                Self::deposit_event(Event::VoteFor(src_id, nonce, who.clone()));
+            } else {
+                votes.votes_against.push(who.clone());
+                Self::deposit_event(Event::VoteAgainst(src_id, nonce, who.clone()));
+            }
+
+            <Votes<T>>::insert(src_id, (nonce, prop.clone()), votes.clone());
+
+            Ok(())
+        }
+
+        /// Attempts to finalize or cancel the proposal if the vote count allows.
+        fn try_resolve_proposal(
+            nonce: DepositNonce,
+            src_id: ChainId,
+            prop: Box<T::Proposal>,
+        ) -> DispatchResult {
+            if let Some(mut votes) = <Votes<T>>::get(src_id, (nonce, prop.clone())) {
+                let now = <frame_system::Module<T>>::block_number();
+                ensure!(!votes.is_complete(), Error::<T>::ProposalAlreadyComplete);
+                ensure!(!votes.is_expired(now), Error::<T>::ProposalExpired);
+
+                let status =
+                    votes.try_to_complete(<RelayerThreshold<T>>::get(), <RelayerCount<T>>::get());
+                <Votes<T>>::insert(src_id, (nonce, prop.clone()), votes.clone());
+
+                match status {
+                    ProposalStatus::Approved => Self::finalize_execution(src_id, nonce, prop),
+                    ProposalStatus::Rejected => Self::cancel_execution(src_id, nonce),
+                    _ => Ok(()),
+                }
+            } else {
+                Err(Error::<T>::ProposalDoesNotExist)?
+            }
+        }
+
+        /// Execute the proposal and signals the result as an event
+        fn finalize_execution(
+            src_id: ChainId,
+            nonce: DepositNonce,
+            call: Box<T::Proposal>,
+        ) -> DispatchResult {
+            Self::deposit_event(Event::ProposalApproved(src_id, nonce));
+            call.dispatch(frame_system::RawOrigin::Signed(Self::account_id()).into())
+                .map(|_| ())
+                .map_err(|e| e.error)?;
+            Self::deposit_event(Event::ProposalSucceeded(src_id, nonce));
+            Ok(())
+        }
+
+        /// Cancels a proposal.
+        fn cancel_execution(src_id: ChainId, nonce: DepositNonce) -> DispatchResult {
+            Self::deposit_event(Event::ProposalRejected(src_id, nonce));
             Ok(())
         }
 

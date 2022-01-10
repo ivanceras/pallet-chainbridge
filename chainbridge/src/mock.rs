@@ -1,10 +1,11 @@
-use crate as pallet_template;
+use crate as pallet_chainbridge;
 use frame_support::pallet_prelude::*;
 use frame_support::parameter_types;
 use frame_support::traits::SortedMembers;
+use frame_support::PalletId;
 use frame_system as system;
 use frame_system::EnsureSignedBy;
-use pallet_template::types::ChainId;
+use pallet_chainbridge::types::ChainId;
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
@@ -22,25 +23,13 @@ frame_support::construct_runtime!(
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
         System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-        TemplateModule: pallet_template::{Pallet, Call, Storage, Event<T>},
+        TemplateModule: pallet_chainbridge::{Pallet, Call, Storage, Event<T>},
     }
 );
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
     pub const SS58Prefix: u8 = 42;
-}
-
-// Parameterize default test user identifier (with id 1)
-parameter_types! {
-    pub const TestUserId: u64 = 1;
-    pub const MockChainId: ChainId = 5;
-}
-
-impl SortedMembers<u64> for TestUserId {
-    fn sorted_members() -> Vec<u64> {
-        vec![1]
-    }
 }
 
 impl system::Config for Test {
@@ -69,11 +58,27 @@ impl system::Config for Test {
     type OnSetCode = ();
 }
 
-impl pallet_template::Config for Test {
+// Parameterize default test user identifier (with id 1)
+parameter_types! {
+    pub const TestUserId: u64 = 1;
+    pub const MockChainId: ChainId = 5;
+    pub const ProposalLifetime: u64 = 10;
+    pub const ChainBridgePalletId: PalletId = PalletId(*b"chnbrdge");
+}
+
+impl SortedMembers<u64> for TestUserId {
+    fn sorted_members() -> Vec<u64> {
+        vec![1]
+    }
+}
+
+impl pallet_chainbridge::Config for Test {
     type Event = Event;
     type AdminOrigin = EnsureSignedBy<TestUserId, u64>;
     type ChainId = MockChainId;
     type Proposal = Call;
+    type ProposalLifetime = ProposalLifetime;
+    type PalletId = ChainBridgePalletId;
 }
 
 // Build genesis storage according to the mock runtime.

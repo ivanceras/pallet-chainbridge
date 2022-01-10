@@ -33,7 +33,7 @@ pub use frame_support::{
 	},
 	StorageValue,
 };
-use frame_support::{pallet_prelude::EnsureOrigin, traits::SortedMembers};
+use frame_support::{pallet_prelude::EnsureOrigin, traits::SortedMembers, PalletId};
 use frame_system::{EnsureRoot, EnsureSignedBy};
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
@@ -285,6 +285,8 @@ impl pallet_template::Config for Runtime {
 
 parameter_types! {
 	pub const ChainId: u8 = 5;
+	pub const ProposalLifetime: BlockNumber = 1000;
+	pub const ChainBridgePalletId: PalletId = PalletId(*b"chnbrdge");
 }
 
 impl chainbridge::Config for Runtime {
@@ -292,6 +294,8 @@ impl chainbridge::Config for Runtime {
 	type ChainId = ChainId;
 	type AdminOrigin = EnsureRoot<Self::AccountId>;
 	type Proposal = Call;
+	type ProposalLifetime = ProposalLifetime;
+	type PalletId = ChainBridgePalletId;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
