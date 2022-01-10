@@ -271,8 +271,85 @@ pub mod pallet {
         pub fn unregister_relayer(relayer: T::AccountId) -> DispatchResult {
             ensure!(Self::is_relayer(&relayer), Error::<T>::RelayerInvalid);
             <Relayers<T>>::remove(&relayer);
+            //TODO: use saturating_sub
             <RelayerCount<T>>::mutate(|i| *i -= 1);
             Self::deposit_event(Event::RelayerRemoved(relayer));
+            Ok(())
+        }
+
+        fn bump_nonce(id: ChainId) -> DepositNonce {
+            //TODO: use saturating_add here
+            let nonce = Self::chains(id).unwrap_or_default() + 1;
+            <ChainNonces<T>>::insert(id, Some(nonce));
+            nonce
+        }
+
+        /// Initiates a transfer of a fungible asset out of the chain. This should be called by
+        /// another pallet
+        pub fn transfer_fungible(
+            dest_id: ChainId,
+            resource_id: ResourceId,
+            to: Vec<u8>,
+            amount: U256,
+        ) -> DispatchResult {
+            ensure!(
+                Self::chain_whitelisted(dest_id),
+                Error::<T>::ChainNotWhitelisted
+            );
+            let nonce = Self::bump_nonce(dest_id);
+            Self::deposit_event(Event::FungibleTransfer(
+                dest_id,
+                nonce,
+                resource_id,
+                amount,
+                to,
+            ));
+            Ok(())
+        }
+
+        /// Initiates a transfer of a nunfungible asset out of the chain. This should be called by
+        /// another pallet
+        pub fn transfer_nonfungible(
+            dest_id: ChainId,
+            resource_id: ResourceId,
+            token_id: Vec<u8>,
+            to: Vec<u8>,
+            metadata: Vec<u8>,
+        ) -> DispatchResult {
+            ensure!(
+                Self::chain_whitelisted(dest_id),
+                Error::<T>::ChainNotWhitelisted
+            );
+            let nonce = Self::bump_nonce(dest_id);
+            Self::deposit_event(Event::NonFungibleTransfer(
+                dest_id,
+                nonce,
+                resource_id,
+                token_id,
+                to,
+                metadata,
+            ));
+            Ok(())
+        }
+
+        /// Initiates a transfer of generic data out of the chain. This should be called by
+        /// another pallet.
+        pub fn transfer_generic(
+            dest_id: ChainId,
+            resource_id: ResourceId,
+            metadata: Vec<u8>,
+        ) -> DispatchResult {
+            ensure!(
+                Self::chain_whitelisted(dest_id),
+                Error::<T>::ChainNotWhitelisted
+            );
+            let nonce = Self::bump_nonce(dest_id);
+            Self::deposit_event(Event::GenericTransfer(
+                dest_id,
+                nonce,
+                resource_id,
+                metadata,
+            ));
             Ok(())
         }
     }
