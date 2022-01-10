@@ -1,3 +1,5 @@
+#![deny(warnings)]
+#![allow(unused)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 /// Edit this file to define custom logic or remove it if it is not needed.
@@ -15,8 +17,6 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
-use crate::types::ProposalVotes;
-
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -27,11 +27,7 @@ pub mod pallet {
         ProposalVotes,
         ResourceId,
     };
-    use codec::{
-        Decode,
-        Encode,
-        EncodeLike,
-    };
+    use codec::EncodeLike;
     use frame_support::{
         dispatch::Dispatchable,
         inherent::*,
@@ -398,7 +394,7 @@ pub mod pallet {
             prop: Box<T::Proposal>,
             in_favour: bool,
         ) -> DispatchResult {
-            let now = <frame_system::Module<T>>::block_number();
+            let now = <frame_system::Pallet<T>>::block_number();
             let mut votes = match <Votes<T>>::get(src_id, (nonce, prop.clone()))
             {
                 Some(v) => v,
@@ -440,7 +436,7 @@ pub mod pallet {
             if let Some(mut votes) =
                 <Votes<T>>::get(src_id, (nonce, prop.clone()))
             {
-                let now = <frame_system::Module<T>>::block_number();
+                let now = <frame_system::Pallet<T>>::block_number();
                 ensure!(
                     !votes.is_complete(),
                     Error::<T>::ProposalAlreadyComplete

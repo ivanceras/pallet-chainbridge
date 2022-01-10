@@ -1,7 +1,8 @@
+#![allow(unused)]
+
 use codec::{
     Decode,
     Encode,
-    EncodeLike,
 };
 use frame_support::{
     inherent::*,

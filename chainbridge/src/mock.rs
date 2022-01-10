@@ -1,6 +1,5 @@
 use crate as pallet_chainbridge;
 use frame_support::{
-    pallet_prelude::*,
     parameter_types,
     traits::SortedMembers,
     PalletId,
