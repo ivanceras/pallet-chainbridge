@@ -1,3 +1,4 @@
+#![allow(warnings)]
 use crate as pallet_chainbridge;
 use frame_support::{
     parameter_types,
@@ -27,7 +28,7 @@ frame_support::construct_runtime!(
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
         System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-        TemplateModule: pallet_chainbridge::{Pallet, Call, Storage, Event<T>},
+        Bridge: pallet_chainbridge::{Pallet, Call, Storage, Event<T>},
     }
 );
 
@@ -65,7 +66,7 @@ impl system::Config for Test {
 // Parameterize default test user identifier (with id 1)
 parameter_types! {
     pub const TestUserId: u64 = 1;
-    pub const MockChainId: ChainId = 5;
+    pub const TestChainId: ChainId = 5;
     pub const ProposalLifetime: u64 = 10;
     pub const ChainBridgePalletId: PalletId = PalletId(*b"chnbrdge");
 }
@@ -78,7 +79,7 @@ impl SortedMembers<u64> for TestUserId {
 
 impl pallet_chainbridge::Config for Test {
     type AdminOrigin = EnsureSignedBy<TestUserId, u64>;
-    type ChainId = MockChainId;
+    type ChainId = TestChainId;
     type Event = Event;
     type PalletId = ChainBridgePalletId;
     type Proposal = Call;
@@ -91,4 +92,20 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
         .build_storage::<Test>()
         .unwrap()
         .into()
+}
+
+// Checks events against the latest. A contiguous set of events must be provided. They must
+// include the most recent event, but do not have to include every past event.
+pub fn assert_events(mut expected: Vec<Event>) {
+    let mut actual: Vec<Event> = system::Module::<Test>::events()
+        .iter()
+        .map(|e| e.event.clone())
+        .collect();
+
+    expected.reverse();
+
+    for evt in expected {
+        let next = actual.pop().expect("event expected");
+        assert_eq!(next, evt.into(), "Events don't match (actual,expected)");
+    }
 }
