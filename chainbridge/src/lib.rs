@@ -19,19 +19,12 @@ mod benchmarking;
 pub mod pallet {
     use super::*;
     use crate::types::{
-        ChainId,
-        DepositNonce,
-        ProposalStatus,
-        ProposalVotes,
-        ResourceId,
+        ChainId, DepositNonce, ProposalStatus, ProposalVotes, ResourceId,
     };
     use codec::EncodeLike;
     use frame_support::{
-        dispatch::Dispatchable,
-        inherent::*,
-        pallet_prelude::*,
-        sp_runtime::traits::AccountIdConversion,
-        weights::GetDispatchInfo,
+        dispatch::Dispatchable, inherent::*, pallet_prelude::*,
+        sp_runtime::traits::AccountIdConversion, weights::GetDispatchInfo,
         PalletId,
     };
     use frame_system::pallet_prelude::*;
@@ -111,6 +104,30 @@ pub mod pallet {
         ProposalVotes<T::AccountId, T::BlockNumber>,
         OptionQuery,
     >;
+
+    /*
+    // ------------------------------------------------------------------------
+    // Pallet genesis configuration
+    // ------------------------------------------------------------------------
+
+    // The genesis configuration type.
+    #[pallet::genesis_config]
+    pub struct GenesisConfig {}
+
+    // The default value for the genesis config type.
+    #[cfg(feature = "std")]
+    impl Default for GenesisConfig {
+        fn default() -> Self {
+            Self {}
+        }
+    }
+
+    // The build of genesis for the pallet.
+    #[pallet::genesis_build]
+    impl<T: Config> GenesisBuild<T> for GenesisConfig {
+        fn build(&self) {}
+    }
+    */
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -275,7 +292,7 @@ pub mod pallet {
         /// # <weight>
         /// - O(1) lookup and removal
         /// # </weight>
-        #[pallet::weight(10_0000)]
+        #[pallet::weight(10_000)]
         pub fn remove_relayer(
             origin: OriginFor<T>,
             v: T::AccountId,
@@ -320,7 +337,7 @@ pub mod pallet {
         /// # <weight>
         /// - Fixed, since execution of proposal should not be included
         /// # </weight>
-        #[pallet::weight(10_0000)]
+        #[pallet::weight(10_000)]
         pub fn reject_proposal(
             origin: OriginFor<T>,
             nonce: DepositNonce,
@@ -339,6 +356,26 @@ pub mod pallet {
                 Error::<T>::ResourceDoesNotExist
             );
             Self::vote_against(who, nonce, src_id, call)
+        }
+
+        /// Evaluate the state of a proposal given the current vote threshold.
+        ///
+        /// A proposal with enough votes will be either executed or cancelled, and the status
+        /// will be updated accordingly.
+        ///
+        /// # <weight>
+        /// - weight of proposed call, regardless of whether execution is performed
+        /// # </weight>
+        #[pallet::weight(10_000)]
+        pub fn eval_vote_state(
+            origin: OriginFor<T>,
+            nonce: DepositNonce,
+            src_id: ChainId,
+            prop: Box<<T as Config>::Proposal>,
+        ) -> DispatchResult {
+            ensure_signed(origin)?;
+
+            Self::try_resolve_proposal(nonce, src_id, prop)
         }
     }
 

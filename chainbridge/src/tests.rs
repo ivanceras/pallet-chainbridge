@@ -1,14 +1,17 @@
 #![allow(warnings)]
-use crate::{
-    derive_resource_id,
-    mock::*,
-    types::*,
+use crate::mock;
+use crate::mock::Bridge;
+use crate::mock::{
+    assert_events, new_test_ext, new_test_ext_initialized, Origin,
+    ProposalLifetime, Test, TestChainId, ENDOWED_BALANCE, RELAYER_A, RELAYER_B,
+    RELAYER_C, TEST_THRESHOLD,
 };
-use frame_support::{
-    assert_noop,
-    assert_ok,
-};
+use crate::types::{ProposalStatus, ProposalVotes};
+use crate::RelayerThreshold;
+use crate::{derive_resource_id, Error, ResourceId};
+use frame_support::{assert_noop, assert_ok};
 use frame_system::RawEvent;
+use sp_core::U256;
 
 #[test]
 fn derive_ids() {
@@ -75,7 +78,6 @@ fn complete_proposal_bad_threshold() {
     assert_eq!(prop.status, ProposalStatus::Initiated);
 }
 
-/*
 #[test]
 fn setup_resources() {
     new_test_ext().execute_with(|| {
@@ -105,8 +107,8 @@ fn whitelist_chain() {
             Error::<Test>::InvalidChainId
         );
 
-        assert_events(vec![Event::pallet_chainbridge(
-            RawEvent::ChainWhitelisted(0),
+        assert_events(vec![mock::Event::Bridge(
+            crate::Event::<Test>::ChainWhitelisted(0),
         )]);
     })
 }
@@ -114,17 +116,21 @@ fn whitelist_chain() {
 #[test]
 fn set_get_threshold() {
     new_test_ext().execute_with(|| {
-        assert_eq!(<RelayerThreshold>::get(), 1);
+        assert_eq!(<RelayerThreshold::<Test>>::get(), 1);
 
         assert_ok!(Bridge::set_threshold(Origin::root(), TEST_THRESHOLD));
-        assert_eq!(<RelayerThreshold>::get(), TEST_THRESHOLD);
+        assert_eq!(<RelayerThreshold::<Test>>::get(), TEST_THRESHOLD);
 
         assert_ok!(Bridge::set_threshold(Origin::root(), 5));
-        assert_eq!(<RelayerThreshold>::get(), 5);
+        assert_eq!(<RelayerThreshold::<Test>>::get(), 5);
 
         assert_events(vec![
-            Event::bridge(RawEvent::RelayerThresholdChanged(TEST_THRESHOLD)),
-            Event::bridge(RawEvent::RelayerThresholdChanged(5)),
+            mock::Event::Bridge(crate::Event::<Test>::RelayerThresholdChanged(
+                TEST_THRESHOLD,
+            )),
+            mock::Event::Bridge(crate::Event::<Test>::RelayerThresholdChanged(
+                5,
+            )),
         ]);
     })
 }
@@ -149,8 +155,10 @@ fn asset_transfer_success() {
             amount.into()
         ));
         assert_events(vec![
-            Event::bridge(RawEvent::ChainWhitelisted(dest_id.clone())),
-            Event::bridge(RawEvent::FungibleTransfer(
+            mock::Event::Bridge(crate::Event::<Test>::ChainWhitelisted(
+                dest_id.clone(),
+            )),
+            mock::Event::Bridge(crate::Event::<Test>::FungibleTransfer(
                 dest_id.clone(),
                 1,
                 resource_id.clone(),
@@ -166,26 +174,30 @@ fn asset_transfer_success() {
             to.clone(),
             metadata.clone()
         ));
-        assert_events(vec![Event::bridge(RawEvent::NonFungibleTransfer(
-            dest_id.clone(),
-            2,
-            resource_id.clone(),
-            token_id,
-            to.clone(),
-            metadata.clone(),
-        ))]);
+        assert_events(vec![mock::Event::Bridge(
+            crate::Event::<Test>::NonFungibleTransfer(
+                dest_id.clone(),
+                2,
+                resource_id.clone(),
+                token_id,
+                to.clone(),
+                metadata.clone(),
+            ),
+        )]);
 
         assert_ok!(Bridge::transfer_generic(
             dest_id.clone(),
             resource_id.clone(),
             metadata.clone()
         ));
-        assert_events(vec![Event::bridge(RawEvent::GenericTransfer(
-            dest_id.clone(),
-            3,
-            resource_id,
-            metadata,
-        ))]);
+        assert_events(vec![mock::Event::Bridge(
+            crate::Event::<Test>::GenericTransfer(
+                dest_id.clone(),
+                3,
+                resource_id,
+                metadata,
+            ),
+        )]);
     })
 }
 
@@ -197,9 +209,9 @@ fn asset_transfer_invalid_chain() {
         let resource_id = [4; 32];
 
         assert_ok!(Bridge::whitelist_chain(Origin::root(), chain_id.clone()));
-        assert_events(vec![Event::bridge(RawEvent::ChainWhitelisted(
-            chain_id.clone(),
-        ))]);
+        assert_events(vec![mock::Event::Bridge(
+            crate::Event::<Test>::ChainWhitelisted(chain_id.clone()),
+        )]);
 
         assert_noop!(
             Bridge::transfer_fungible(
@@ -256,16 +268,18 @@ fn add_remove_relayer() {
         assert_eq!(Bridge::relayer_count(), 2);
 
         assert_events(vec![
-            Event::bridge(RawEvent::RelayerAdded(RELAYER_A)),
-            Event::bridge(RawEvent::RelayerAdded(RELAYER_B)),
-            Event::bridge(RawEvent::RelayerAdded(RELAYER_C)),
-            Event::bridge(RawEvent::RelayerRemoved(RELAYER_B)),
+            mock::Event::Bridge(crate::Event::<Test>::RelayerAdded(RELAYER_A)),
+            mock::Event::Bridge(crate::Event::<Test>::RelayerAdded(RELAYER_B)),
+            mock::Event::Bridge(crate::Event::<Test>::RelayerAdded(RELAYER_C)),
+            mock::Event::Bridge(crate::Event::<Test>::RelayerRemoved(
+                RELAYER_B,
+            )),
         ]);
     })
 }
 
 fn make_proposal(r: Vec<u8>) -> mock::Call {
-    Call::System(system::Call::remark(r))
+    mock::Call::System(frame_system::Call::remark { remark: r })
 }
 
 #[test]
@@ -287,7 +301,7 @@ fn create_sucessful_proposal() {
                 Box::new(proposal.clone())
             ));
             let prop =
-                Bridge::votes(src_id, (prop_id.clone(), proposal.clone()))
+                Bridge::get_votes(src_id, (prop_id.clone(), proposal.clone()))
                     .unwrap();
             let expected = ProposalVotes {
                 votes_for: vec![RELAYER_A],
@@ -306,7 +320,7 @@ fn create_sucessful_proposal() {
                 Box::new(proposal.clone())
             ));
             let prop =
-                Bridge::votes(src_id, (prop_id.clone(), proposal.clone()))
+                Bridge::get_votes(src_id, (prop_id.clone(), proposal.clone()))
                     .unwrap();
             let expected = ProposalVotes {
                 votes_for: vec![RELAYER_A],
@@ -325,7 +339,7 @@ fn create_sucessful_proposal() {
                 Box::new(proposal.clone())
             ));
             let prop =
-                Bridge::votes(src_id, (prop_id.clone(), proposal.clone()))
+                Bridge::get_votes(src_id, (prop_id.clone(), proposal.clone()))
                     .unwrap();
             let expected = ProposalVotes {
                 votes_for: vec![RELAYER_A, RELAYER_C],
@@ -336,13 +350,21 @@ fn create_sucessful_proposal() {
             assert_eq!(prop, expected);
 
             assert_events(vec![
-                Event::bridge(RawEvent::VoteFor(src_id, prop_id, RELAYER_A)),
-                Event::bridge(RawEvent::VoteAgainst(
+                mock::Event::Bridge(crate::Event::<Test>::VoteFor(
+                    src_id, prop_id, RELAYER_A,
+                )),
+                mock::Event::Bridge(crate::Event::<Test>::VoteAgainst(
                     src_id, prop_id, RELAYER_B,
                 )),
-                Event::bridge(RawEvent::VoteFor(src_id, prop_id, RELAYER_C)),
-                Event::bridge(RawEvent::ProposalApproved(src_id, prop_id)),
-                Event::bridge(RawEvent::ProposalSucceeded(src_id, prop_id)),
+                mock::Event::Bridge(crate::Event::<Test>::VoteFor(
+                    src_id, prop_id, RELAYER_C,
+                )),
+                mock::Event::Bridge(crate::Event::<Test>::ProposalApproved(
+                    src_id, prop_id,
+                )),
+                mock::Event::Bridge(crate::Event::<Test>::ProposalSucceeded(
+                    src_id, prop_id,
+                )),
             ]);
         })
 }
@@ -366,7 +388,7 @@ fn create_unsucessful_proposal() {
                 Box::new(proposal.clone())
             ));
             let prop =
-                Bridge::votes(src_id, (prop_id.clone(), proposal.clone()))
+                Bridge::get_votes(src_id, (prop_id.clone(), proposal.clone()))
                     .unwrap();
             let expected = ProposalVotes {
                 votes_for: vec![RELAYER_A],
@@ -385,7 +407,7 @@ fn create_unsucessful_proposal() {
                 Box::new(proposal.clone())
             ));
             let prop =
-                Bridge::votes(src_id, (prop_id.clone(), proposal.clone()))
+                Bridge::get_votes(src_id, (prop_id.clone(), proposal.clone()))
                     .unwrap();
             let expected = ProposalVotes {
                 votes_for: vec![RELAYER_A],
@@ -404,7 +426,7 @@ fn create_unsucessful_proposal() {
                 Box::new(proposal.clone())
             ));
             let prop =
-                Bridge::votes(src_id, (prop_id.clone(), proposal.clone()))
+                Bridge::get_votes(src_id, (prop_id.clone(), proposal.clone()))
                     .unwrap();
             let expected = ProposalVotes {
                 votes_for: vec![RELAYER_A],
@@ -414,21 +436,27 @@ fn create_unsucessful_proposal() {
             };
             assert_eq!(prop, expected);
 
-            assert_eq!(Balances::free_balance(RELAYER_B), 0);
+            /*
+            assert_eq!(mock::Balances::free_balance(RELAYER_B), 0);
             assert_eq!(
-                Balances::free_balance(Bridge::account_id()),
+                mock::Balances::free_balance(Bridge::account_id()),
                 ENDOWED_BALANCE
             );
+            */
 
             assert_events(vec![
-                Event::bridge(RawEvent::VoteFor(src_id, prop_id, RELAYER_A)),
-                Event::bridge(RawEvent::VoteAgainst(
+                mock::Event::Bridge(crate::Event::<Test>::VoteFor(
+                    src_id, prop_id, RELAYER_A,
+                )),
+                mock::Event::Bridge(crate::Event::<Test>::VoteAgainst(
                     src_id, prop_id, RELAYER_B,
                 )),
-                Event::bridge(RawEvent::VoteAgainst(
+                mock::Event::Bridge(crate::Event::<Test>::VoteAgainst(
                     src_id, prop_id, RELAYER_C,
                 )),
-                Event::bridge(RawEvent::ProposalRejected(src_id, prop_id)),
+                mock::Event::Bridge(crate::Event::<Test>::ProposalRejected(
+                    src_id, prop_id,
+                )),
             ]);
         })
 }
@@ -452,7 +480,7 @@ fn execute_after_threshold_change() {
                 Box::new(proposal.clone())
             ));
             let prop =
-                Bridge::votes(src_id, (prop_id.clone(), proposal.clone()))
+                Bridge::get_votes(src_id, (prop_id.clone(), proposal.clone()))
                     .unwrap();
             let expected = ProposalVotes {
                 votes_for: vec![RELAYER_A],
@@ -474,7 +502,7 @@ fn execute_after_threshold_change() {
             ));
 
             let prop =
-                Bridge::votes(src_id, (prop_id.clone(), proposal.clone()))
+                Bridge::get_votes(src_id, (prop_id.clone(), proposal.clone()))
                     .unwrap();
             let expected = ProposalVotes {
                 votes_for: vec![RELAYER_A],
@@ -484,17 +512,27 @@ fn execute_after_threshold_change() {
             };
             assert_eq!(prop, expected);
 
+            /*
             assert_eq!(Balances::free_balance(RELAYER_B), 0);
             assert_eq!(
                 Balances::free_balance(Bridge::account_id()),
                 ENDOWED_BALANCE
             );
+            */
 
             assert_events(vec![
-                Event::bridge(RawEvent::VoteFor(src_id, prop_id, RELAYER_A)),
-                Event::bridge(RawEvent::RelayerThresholdChanged(1)),
-                Event::bridge(RawEvent::ProposalApproved(src_id, prop_id)),
-                Event::bridge(RawEvent::ProposalSucceeded(src_id, prop_id)),
+                mock::Event::Bridge(crate::Event::<Test>::VoteFor(
+                    src_id, prop_id, RELAYER_A,
+                )),
+                mock::Event::Bridge(
+                    crate::Event::<Test>::RelayerThresholdChanged(1),
+                ),
+                mock::Event::Bridge(crate::Event::<Test>::ProposalApproved(
+                    src_id, prop_id,
+                )),
+                mock::Event::Bridge(crate::Event::<Test>::ProposalSucceeded(
+                    src_id, prop_id,
+                )),
             ]);
         })
 }
@@ -518,7 +556,7 @@ fn proposal_expires() {
                 Box::new(proposal.clone())
             ));
             let prop =
-                Bridge::votes(src_id, (prop_id.clone(), proposal.clone()))
+                Bridge::get_votes(src_id, (prop_id.clone(), proposal.clone()))
                     .unwrap();
             let expected = ProposalVotes {
                 votes_for: vec![RELAYER_A],
@@ -529,7 +567,7 @@ fn proposal_expires() {
             assert_eq!(prop, expected);
 
             // Increment enough blocks such that now == expiry
-            System::set_block_number(ProposalLifetime::get() + 1);
+            mock::System::set_block_number(ProposalLifetime::get() + 1);
 
             // Attempt to submit a vote should fail
             assert_noop!(
@@ -545,7 +583,7 @@ fn proposal_expires() {
 
             // Proposal state should remain unchanged
             let prop =
-                Bridge::votes(src_id, (prop_id.clone(), proposal.clone()))
+                Bridge::get_votes(src_id, (prop_id.clone(), proposal.clone()))
                     .unwrap();
             let expected = ProposalVotes {
                 votes_for: vec![RELAYER_A],
@@ -566,7 +604,7 @@ fn proposal_expires() {
                 Error::<Test>::ProposalExpired
             );
             let prop =
-                Bridge::votes(src_id, (prop_id.clone(), proposal.clone()))
+                Bridge::get_votes(src_id, (prop_id.clone(), proposal.clone()))
                     .unwrap();
             let expected = ProposalVotes {
                 votes_for: vec![RELAYER_A],
@@ -576,9 +614,8 @@ fn proposal_expires() {
             };
             assert_eq!(prop, expected);
 
-            assert_events(vec![Event::bridge(RawEvent::VoteFor(
-                src_id, prop_id, RELAYER_A,
-            ))]);
+            assert_events(vec![mock::Event::Bridge(
+                crate::Event::<Test>::VoteFor(src_id, prop_id, RELAYER_A),
+            )]);
         })
 }
-*/
