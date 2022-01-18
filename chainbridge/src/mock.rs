@@ -1,6 +1,7 @@
 #![allow(warnings)]
 use crate as pallet_chainbridge;
 use crate::ResourceId;
+use frame_support::traits::StorageMapShim;
 use frame_support::{
     assert_ok, parameter_types, traits::SortedMembers, PalletId,
 };
@@ -34,7 +35,7 @@ frame_support::construct_runtime!(
 
         System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
         Bridge: pallet_chainbridge::{Pallet, Call, Storage, Event<T>},
-        //Balances: pallet_balances::{Pallet, Call, Config<T>, Storage, Event<T>},
+        Balances: pallet_balances::{Pallet, Call, Config<T>, Storage, Event<T>},
     }
 );
 
@@ -43,20 +44,24 @@ parameter_types! {
     pub const SS58Prefix: u8 = 42;
 }
 
-/*
 // Implement FRAME balances pallet configuration trait for the mock runtime
 impl pallet_balances::Config for Test {
     type Balance = Balance;
     type DustRemoval = ();
     type Event = Event;
     type ExistentialDeposit = ExistentialDeposit;
-    type AccountStore = System;
+    // https://stackoverflow.com/questions/66511734/how-do-we-use-the-balances-pallet-instead-of-the-system-pallet-to-store-the-bala
+    type AccountStore = StorageMapShim<
+        pallet_balances::Account<Test>,
+        frame_system::Provider<Test>,
+        Self::AccountId,
+        pallet_balances::AccountData<Balance>,
+    >;
     type WeightInfo = ();
     type MaxLocks = ();
     type MaxReserves = ();
     type ReserveIdentifier = ();
 }
-*/
 
 impl system::Config for Test {
     type AccountData = ();

@@ -436,13 +436,11 @@ fn create_unsucessful_proposal() {
             };
             assert_eq!(prop, expected);
 
-            /*
             assert_eq!(mock::Balances::free_balance(RELAYER_B), 0);
             assert_eq!(
                 mock::Balances::free_balance(Bridge::account_id()),
                 ENDOWED_BALANCE
             );
-            */
 
             assert_events(vec![
                 mock::Event::Bridge(crate::Event::<Test>::VoteFor(
@@ -512,13 +510,11 @@ fn execute_after_threshold_change() {
             };
             assert_eq!(prop, expected);
 
-            /*
-            assert_eq!(Balances::free_balance(RELAYER_B), 0);
+            assert_eq!(mock::Balances::free_balance(RELAYER_B), 0);
             assert_eq!(
-                Balances::free_balance(Bridge::account_id()),
+                mock::Balances::free_balance(Bridge::account_id()),
                 ENDOWED_BALANCE
             );
-            */
 
             assert_events(vec![
                 mock::Event::Bridge(crate::Event::<Test>::VoteFor(
