@@ -1,5 +1,4 @@
 #![deny(warnings)]
-//#![allow(unused)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use crate::types::ResourceId;

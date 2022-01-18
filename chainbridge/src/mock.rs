@@ -1,4 +1,4 @@
-#![allow(warnings)]
+#![deny(warnings)]
 use crate as pallet_chainbridge;
 use crate::ResourceId;
 use frame_support::traits::StorageMapShim;
@@ -151,7 +151,7 @@ pub fn new_test_ext_initialized(
 // Checks events against the latest. A contiguous set of events must be provided. They must
 // include the most recent event, but do not have to include every past event.
 pub fn assert_events(mut expected: Vec<Event>) {
-    let mut actual: Vec<Event> = system::Module::<Test>::events()
+    let mut actual: Vec<Event> = system::Pallet::<Test>::events()
         .iter()
         .map(|e| e.event.clone())
         .collect();

@@ -1,3 +1,4 @@
+#![deny(warnings)]
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
@@ -24,6 +25,7 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
 // A few exports that help ease life for downstream crates.
+use frame_support::PalletId;
 pub use frame_support::{
 	construct_runtime, parameter_types,
 	traits::{KeyOwnerProofSystem, Randomness, StorageInfo},
@@ -33,8 +35,7 @@ pub use frame_support::{
 	},
 	StorageValue,
 };
-use frame_support::{pallet_prelude::EnsureOrigin, traits::SortedMembers, PalletId};
-use frame_system::{EnsureRoot, EnsureSignedBy};
+use frame_system::EnsureRoot;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
 use pallet_transaction_payment::CurrencyAdapter;

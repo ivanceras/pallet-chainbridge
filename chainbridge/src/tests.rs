@@ -1,4 +1,4 @@
-#![allow(warnings)]
+#![deny(warnings)]
 use crate::mock;
 use crate::mock::Bridge;
 use crate::mock::{
@@ -10,7 +10,6 @@ use crate::types::{ProposalStatus, ProposalVotes};
 use crate::RelayerThreshold;
 use crate::{derive_resource_id, Error, ResourceId};
 use frame_support::{assert_noop, assert_ok};
-use frame_system::RawEvent;
 use sp_core::U256;
 
 #[test]

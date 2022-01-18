@@ -1,13 +1,7 @@
-#![allow(unused)]
+#![deny(warnings)]
 
-use codec::{
-    Decode,
-    Encode,
-};
-use frame_support::{
-    inherent::*,
-    pallet_prelude::*,
-};
+use codec::{Decode, Encode};
+use frame_support::{inherent::*, pallet_prelude::*};
 use scale_info::TypeInfo;
 use sp_std::prelude::*;
 
