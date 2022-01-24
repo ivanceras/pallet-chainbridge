@@ -55,10 +55,6 @@ git = 'https://github.com/paritytech/substrate.git'
 tag = 'monthly-2021-12'
 version = '4.0.0-dev'
 
-[dependencies.chainbridge]
-default-features = false
-path = "../chainbridge" 
-
 [dev-dependencies]
 
 [dev-dependencies.pallet-balances]
@@ -81,5 +77,4 @@ std = [
     "sp-core/std",
 	"frame-support/std",
 	"frame-system/std",
-	"chainbridge/std"
 ]

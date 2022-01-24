@@ -1,8 +1,9 @@
 #![deny(warnings)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use crate::types::ResourceId;
 pub use pallet::*;
+pub use types::ChainId;
+pub use types::ResourceId;
 mod types;
 
 #[cfg(test)]

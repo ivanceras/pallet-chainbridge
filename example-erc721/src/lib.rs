@@ -3,6 +3,7 @@
 
 //! # Example ERC721 pallet
 #![cfg_attr(not(feature = "std"), no_std)]
+#![deny(warnings)]
 
 pub use pallet::*;
 
