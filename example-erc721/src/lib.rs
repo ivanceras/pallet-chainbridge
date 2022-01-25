@@ -7,8 +7,8 @@
 
 pub use pallet::*;
 
-//#[cfg(test)]
-//mod mock;
+#[cfg(test)]
+mod mock;
 
 //#[cfg(test)]
 //mod tests;
@@ -21,6 +21,7 @@ mod types {
     use scale_info::TypeInfo;
     use sp_core::U256;
     use sp_runtime::RuntimeDebug;
+    use sp_std::vec::Vec;
 
     pub type TokenId = U256;
 
@@ -60,6 +61,7 @@ pub mod pallet {
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
     use sp_core::U256;
+    use sp_std::vec::Vec;
 
     // Bridge pallet type declaration.
     //
@@ -144,7 +146,8 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         /// Creates a new token with the given token ID and metadata, and gives ownership to owner
-        #[pallet::weight(<T as Config>::WeightInfo::mint())]
+        //#[pallet::weight(<T as Config>::WeightInfo::mint())]
+        #[pallet::weight(10_000)]
         pub fn mint(
             origin: OriginFor<T>,
             owner: T::AccountId,
