@@ -3592,6 +3592,8 @@ dependencies = [
  "hex-literal",
  "pallet-aura",
  "pallet-balances",
+ "pallet-example",
+ "pallet-example-erc721",
  "pallet-grandpa",
  "pallet-randomness-collective-flip",
  "pallet-sudo",
@@ -3606,6 +3608,7 @@ dependencies = [
  "sp-consensus-aura",
  "sp-core",
  "sp-inherents",
+ "sp-io",
  "sp-offchain",
  "sp-runtime",
  "sp-session",
@@ -3856,6 +3859,7 @@ dependencies = [
 name = "pallet-example-erc721"
 version = "0.0.1"
 dependencies = [
+ "chainbridge",
  "frame-support",
  "frame-system",
  "pallet-balances",

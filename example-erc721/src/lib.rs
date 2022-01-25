@@ -6,6 +6,7 @@
 #![deny(warnings)]
 
 pub use pallet::*;
+pub use traits::WeightInfo;
 
 #[cfg(test)]
 mod mock;

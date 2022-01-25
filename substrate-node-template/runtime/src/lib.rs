@@ -39,6 +39,7 @@ use frame_system::EnsureRoot;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
 use pallet_transaction_payment::CurrencyAdapter;
+use sp_io::hashing::blake2_128;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
@@ -299,6 +300,45 @@ impl chainbridge::Config for Runtime {
 	type PalletId = ChainBridgePalletId;
 }
 
+parameter_types! {
+	pub HashId: chainbridge::ResourceId = chainbridge::derive_resource_id(1, &blake2_128(b"hash"));
+	// Note: Chain ID is 0 indicating this is native to another chain
+	pub NativeTokenId: chainbridge::ResourceId = chainbridge::derive_resource_id(0, &blake2_128(b"DAV"));
+	pub NFTTokenId: chainbridge::ResourceId = chainbridge::derive_resource_id(1, &blake2_128(b"NFT"));
+}
+
+/// TODO: I don't why this needs to be here
+/// and implemented here.
+/// Shouldn't this be implemented in it's own pallet code
+/// and use frame_system::WeightInfo trait
+pub struct Erc721WeightInfo;
+impl pallet_example_erc721::WeightInfo for Erc721WeightInfo {
+	fn mint() -> Weight {
+		0 as Weight
+	}
+	fn transfer() -> Weight {
+		0 as Weight
+	}
+	fn burn() -> Weight {
+		0 as Weight
+	}
+}
+
+impl pallet_example_erc721::Config for Runtime {
+	type Event = Event;
+	type Identifier = NFTTokenId;
+	type WeightInfo = Erc721WeightInfo;
+}
+
+impl pallet_example::Config for Runtime {
+	type Event = Event;
+	type BridgeOrigin = chainbridge::EnsureBridge<Runtime>;
+	type Currency = pallet_balances::Pallet<Runtime>;
+	type HashId = HashId;
+	type NativeTokenId = NativeTokenId;
+	type Erc721Id = NFTTokenId;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime where
@@ -320,6 +360,8 @@ construct_runtime!(
 		//TODO: propose renaming chainbridge to chainbridge-pallet to distinguish
 		//from main project repos: chainbridge/chainbridge-core
 		Chainbridge: chainbridge,
+		Erc721: pallet_example_erc721,
+		Example: pallet_example,
 	}
 );
 

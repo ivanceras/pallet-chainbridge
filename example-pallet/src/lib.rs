@@ -32,6 +32,7 @@ pub mod pallet {
     use frame_support::traits::ExistenceRequirement::AllowDeath;
     use frame_system::pallet_prelude::*;
     use sp_core::U256;
+    use sp_std::vec::Vec;
 
     #[pallet::pallet]
     #[pallet::generate_store(pub(super) trait Store)]

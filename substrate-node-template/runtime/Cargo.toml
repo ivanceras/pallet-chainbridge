@@ -23,6 +23,16 @@ default-features = false
 path = '../../chainbridge'
 version = '4.0.0-dev'
 
+[dependencies.pallet-example]
+default-features = false
+path = '../../example-pallet'
+version = '0.0.1'
+
+[dependencies.pallet-example-erc721]
+default-features = false
+path = '../../example-erc721'
+version = '0.0.1'
+
 [build-dependencies.substrate-wasm-builder]
 git = 'https://github.com/paritytech/substrate.git'
 tag = 'monthly-2021-12'
@@ -153,6 +163,12 @@ git = 'https://github.com/paritytech/substrate.git'
 tag = 'monthly-2021-12'
 version = '4.0.0-dev'
 
+[dependencies.sp-io]
+default-features = false
+git = 'https://github.com/paritytech/substrate.git'
+tag = 'monthly-2021-12'
+version = '4.0.0-dev'
+
 [dependencies.sp-inherents]
 default-features = false
 git = 'https://github.com/paritytech/substrate.git'
@@ -233,6 +249,10 @@ std = [
     'sp-runtime/std',
     'sp-session/std',
     'sp-std/std',
+    'sp-io/std',
     'sp-transaction-pool/std',
     'sp-version/std',
+    'chainbridge/std',
+    'pallet-example/std',
+    'pallet-example-erc721/std',
 ]

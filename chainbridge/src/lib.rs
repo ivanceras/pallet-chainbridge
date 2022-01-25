@@ -1,10 +1,13 @@
 #![deny(warnings)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use frame_support::pallet_prelude::EnsureOrigin;
+use frame_support::sp_runtime::traits::AccountIdConversion;
+use frame_support::traits::Get;
 pub use pallet::*;
 pub use types::ChainId;
 pub use types::ResourceId;
-mod types;
+pub mod types;
 
 #[cfg(test)]
 mod mock;
@@ -692,4 +695,27 @@ pub fn derive_resource_id(chain: u8, id: &[u8]) -> ResourceId {
         r_id[30 - i] = id[range - 1 - i]; // Ensure left padding for eth compatibility
     }
     r_id
+}
+
+/// Simple ensure origin for the bridge account
+pub struct EnsureBridge<T>(sp_std::marker::PhantomData<T>);
+impl<T: Config> EnsureOrigin<T::Origin> for EnsureBridge<T> {
+    type Success = T::AccountId;
+    fn try_origin(o: T::Origin) -> Result<Self::Success, T::Origin> {
+        let bridge_id = T::PalletId::get().into_account();
+        o.into().and_then(|o| match o {
+            frame_system::RawOrigin::Signed(who) if who == bridge_id => {
+                Ok(bridge_id)
+            }
+            r => Err(T::Origin::from(r)),
+        })
+    }
+
+    /// Returns an outer origin capable of passing `try_origin` check.
+    ///
+    /// ** Should be used for benchmarking only!!! **
+    #[cfg(feature = "runtime-benchmarks")]
+    fn successful_origin() -> T::Origin {
+        T::Origin::from(frame_system::Origin::Signed(<Module<T>>::account_id()))
+    }
 }
