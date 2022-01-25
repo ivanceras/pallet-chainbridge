@@ -67,7 +67,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
         Balances: pallet_balances::{Pallet, Call, Config<T>, Storage, Event<T>},
-        //Erc721: pallet_example_erc721::{Pallet, Call, Storage, Event<T>},
+        Erc721: pallet_example_erc721::{Pallet, Call, Storage, Event<T>},
     }
 );
 
@@ -130,14 +130,12 @@ parameter_types! {
     pub Erc721Id: chainbridge::types::ResourceId = chainbridge::derive_resource_id(1, &blake2_128(b"NFT"));
 }
 
-/*
 // Implement FRAME ERC721 pallet configuration trait for the mock runtime
 impl pallet_example_erc721::Config for MockRuntime {
     type Event = Event;
     type Identifier = Erc721Id;
     type WeightInfo = MockWeightInfo;
 }
-*/
 
 // ----------------------------------------------------------------------------
 // Test externalities
